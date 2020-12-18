@@ -5,7 +5,6 @@
 
 #include "../World.h"
 #include "../Entities/Player.h"
-#include "../LineBlockTracer.h"
 
 
 
@@ -38,11 +37,6 @@ void cAggressiveMonster::InStateChasing(std::chrono::milliseconds a_Dt, cChunk &
 
 void cAggressiveMonster::EventSeePlayer(cPlayer * a_Player, cChunk & a_Chunk)
 {
-	if (!a_Player->CanMobsTarget())
-	{
-		return;
-	}
-
 	Super::EventSeePlayer(a_Player, a_Chunk);
 	m_EMState = CHASING;
 }
@@ -60,27 +54,20 @@ void cAggressiveMonster::Tick(std::chrono::milliseconds a_Dt, cChunk & a_Chunk)
 		return;
 	}
 
+	// Set or clear m_Target depending on rules for this Monster:
 	if (m_EMState == CHASING)
 	{
-		CheckEventLostPlayer();
+		CheckEventLostPlayer(a_Dt);
 	}
 	else
 	{
 		CheckEventSeePlayer(a_Chunk);
 	}
 
-	auto target = GetTarget();
-	if (target == nullptr)
-	{
-		return;
-	}
-
-	// TODO: Currently all mobs see through lava, but only Nether-native mobs should be able to.
-	Vector3d MyHeadPosition = GetPosition() + Vector3d(0, GetHeight(), 0);
-	Vector3d TargetPosition = target->GetPosition() + Vector3d(0, target->GetHeight(), 0);
 	if (
+		(GetTarget() != nullptr) &&
 		TargetIsInRange() &&
-		cLineBlockTracer::LineOfSightTrace(*GetWorld(), MyHeadPosition, TargetPosition, cLineBlockTracer::losAirWaterLava) &&
+		(m_LoseSightAbandonTargetTimer == std::chrono::seconds::zero()) &&  // Incremented by CheckEventLostPlayer when line of sight lost
 		(GetHealth() > 0.0)
 	)
 	{
